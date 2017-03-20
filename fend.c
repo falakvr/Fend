@@ -86,8 +86,6 @@ void sandb_handle_syscall(pid_t pid, int number_of_lines,
 	char actualpath[PATH_MAX + 1];
 	char *real_path;
 
-	if (debug)
-		printf("Inside handle, before getregs\n");
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs) < 0)
 		err(EXIT_FAILURE, "[SANDBOX] Failed to PTRACE_GETREGS:");
 
@@ -95,17 +93,9 @@ void sandb_handle_syscall(pid_t pid, int number_of_lines,
 
 		//OPEN syscall
 
-		if (debug)
-			printf("inside open\n");
-
 		strval = read_string(pid, regs.rdi);
 
 		flag = (regs.rsi & O_ACCMODE);
-
-		if (debug)
-			printf("%s\n", strval);
-		if (debug)
-			printf("%d\n", flag);
 
 		for (i = 0; i < number_of_lines; i++) {
 			if (fnmatch(config_array[i].filename, strval, FNM_PATHNAME) == 0) {
@@ -130,12 +120,8 @@ void sandb_handle_syscall(pid_t pid, int number_of_lines,
 
 	if (regs.orig_rax == 257) {
 
-		//OPENAT
-		printf("Inside openat\n");
 		strval = read_string(pid, regs.rsi);
 		real_path = realpath(strval, actualpath);
-		if (debug)
-			printf("%s\n", real_path);
 
 		flag = (regs.rdx & O_ACCMODE);
 
@@ -166,12 +152,7 @@ void sandb_run(pid_t pid, int number_of_lines, struct config *config_array,
 	struct user_regs_struct regs;
 	int i = 0;
 
-	if (debug)
-		printf("Inside sandb_run\n");
 	int status;
-
-	if (debug)
-		printf("Inside run, before ptrace syscall\n");
 
 	if (ptrace(PTRACE_GETREGS, pid, NULL, &regs) < 0)
 		err(EXIT_FAILURE, "[SANDBOX] Failed to PTRACE_GETREGS:");
@@ -179,11 +160,6 @@ void sandb_run(pid_t pid, int number_of_lines, struct config *config_array,
 	if (regs.orig_rax == 59) {
 
 		//execve
-		if (debug)
-			printf("Inside execve\n");
-
-		if (debug)
-			printf("Printing Real_path_exec_file = %s\n", real_path_exec_file);
 
 		if (real_path_exec_file != NULL) {
 			for (i = 0; i < number_of_lines; i++) {
@@ -205,8 +181,6 @@ void sandb_run(pid_t pid, int number_of_lines, struct config *config_array,
 			err(EXIT_FAILURE, "[SANDBOX] Failed to PTRACE_SYSCALL:");
 		}
 	}
-	if (debug)
-		printf("Inside run before wait(&status)\n");
 	wait(&status);
 
 	if (WIFEXITED(status)) {
@@ -214,8 +188,6 @@ void sandb_run(pid_t pid, int number_of_lines, struct config *config_array,
 	}
 
 	if (WIFSTOPPED(status)) {
-		if (debug)
-			printf("Inside run, before calling handle syscall\n");
 		sandb_handle_syscall(pid, number_of_lines, config_array, argv);
 	}
 }
@@ -268,27 +240,18 @@ int main(int argc, char *argv[]) {
 		//http://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c-cross-platform
 
 		if (file_in_cwd != -1) {
-			if (debug)
-				printf("File found in %s\n", cwd);
 			fptr = fopen(config_file, "r");
 		} else {
 
 			//look in home directory;
 			config_file = "/.fendrc";
 			passwd = getpwuid(getuid());
-			if (debug)
-				printf("The uid is %lu\n",
-						(unsigned long) getpwuid(getuid())->pw_uid);
-			if (debug)
-				printf("The Home Directory is %s\n", passwd->pw_dir);
 
 			if ((new_str = malloc(
 					strlen(passwd->pw_dir) + strlen(config_file) + 1)) != NULL) {
 				new_str[0] = '\0';   // ensures the memory is an empty string
 				strcat(new_str, passwd->pw_dir);
 				strcat(new_str, config_file);
-				if (debug)
-					printf("New string = %s\n", new_str);
 			} else {
 				fprintf(stderr, "malloc failed!\n");
 				// exit?
@@ -313,10 +276,6 @@ int main(int argc, char *argv[]) {
 		number_of_lines++;
 	}
 
-	if (debug)
-		printf("Number of lines in the config file %s is = %d\n", config_file,
-				number_of_lines);
-
 	struct config *config_array = (struct config*) malloc(
 			sizeof(struct config) * number_of_lines);
 
@@ -331,49 +290,23 @@ int main(int argc, char *argv[]) {
 		config_array[i].filename = strdup(bar);
 	}
 
-	if (debug) {
-		for (i = 0; i < number_of_lines; i++) {
-			printf("Permission: %s; File: %s\n", config_array[i].permission,
-					config_array[i].filename);
-		}
-	}
-
-	if (debug)
-		printf("Arguments are - \n");
-	if (debug) {
-		for (i = 0; i < argc; i++) {
-			printf("%s\n", argv[i]);
-		}
-	}
-
 	pid_t pid;
 
 	pid = fork();
 
 	if (pid == 0) {
-		if (debug)
-			printf("Inside child, before ptrace traceme\n");
 		if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0)
 			err(EXIT_FAILURE, "FEND Failed to PTRACE_TRACEME:");
-		if (debug)
-			printf("Inside child, before execv");
+
 		if (execvp(argv[0], argv) < 0)
 			err(EXIT_FAILURE, "[SANDBOX] Failed to execv:");
-
 	} else {
-		if (debug)
-			printf("Inside parent, before wait\n");
 		wait(NULL);
-		if (debug)
-			printf("Parent exiting\n");
 	}
 
 	for (;;) {
 		sandb_run(pid, number_of_lines, config_array, real_path_exec_file,
 				argv);
 	}
-	if (debug)
-		printf("Main over");
 	exit(EXIT_SUCCESS);
 }
-
