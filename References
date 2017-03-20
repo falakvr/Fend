@@ -1,0 +1,16 @@
+References 
+
+http://stackoverflow.com/questions/37891184/checking-only-the-o-rdonly-flag-to-open2
+
+http://stackoverflow.com/questions/5901181/c-string-append
+
+http://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c-cross-platform
+
+A blog I stumbled upon while figuring out how strace works -
+https://blog.nelhage.com/2010/08/write-yourself-an-strace-in-70-lines-of-code/
+
+The function read_string to read the registers has been borrowed from the following code - 
+
+https://github.com/nelhage/ministrace/blob/master/ministrace.c
+
+
